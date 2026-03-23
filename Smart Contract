@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/**
+ * @title AlcoholSupplyChain
+ * @dev A smart contract for tracking alcohol batches on the blockchain
+ * Allows producers to create batches and transfer ownership through the supply chain
+ */
+contract AlcoholSupplyChain {
+
+    struct Batch {
+        uint id;
+        string name;
+        string alcoholType;
+        uint abv;
+        string origin;
+        address[] ownershipHistory;
+        address currentOwner;
+        bool exists;
+    }
+
+    uint public batchCount;
+
+    mapping(uint => Batch) private batches;
+
+    event BatchCreated(uint id, string name, address owner);
+    event OwnershipTransferred(uint id, address from, address to);
+
+    /**
+     * @dev Creates a new alcohol batch
+     * @param _name The name of the alcohol product
+     * @param _type The type of alcohol (e.g., Whiskey, Wine, Beer)
+     * @param _abv The alcohol by volume percentage
+     * @param _origin The country/region of origin
+     * @return The ID of the newly created batch
+     */
+    function createBatch(
+        string memory _name,
+        string memory _type,
+        uint _abv,
+        string memory _origin
+    ) public returns (uint) {
+        batchCount++;
+
+        address[] memory history = new address[](1);
+        history[0] = msg.sender;
+
+        batches[batchCount] = Batch({
+            id: batchCount,
+            name: _name,
+            alcoholType: _type,
+            abv: _abv,
+            origin: _origin,
+            ownershipHistory: history,
+            currentOwner: msg.sender,
+            exists: true
+        });
+
+        emit BatchCreated(batchCount, _name, msg.sender);
+        return batchCount;
+    }
+
+    /**
+     * @dev Transfers ownership of a batch to a new owner
+     * @param _id The ID of the batch to transfer
+     * @param _newOwner The address of the new owner
+     */
+    function transferBatch(uint _id, address _newOwner) public {
+        require(batches[_id].exists, "Batch does not exist");
+        require(batches[_id].currentOwner == msg.sender, "Not current owner");
+        require(_newOwner != address(0), "Invalid new owner address");
+
+        address oldOwner = batches[_id].currentOwner;
+
+        batches[_id].currentOwner = _newOwner;
+        batches[_id].ownershipHistory.push(_newOwner);
+
+        emit OwnershipTransferred(_id, oldOwner, _newOwner);
+    }
+
+    /**
+     * @dev Gets the full details of a batch
+     * @param _id The ID of the batch to query
+     * @return All batch information including ownership history
+     */
+    function getBatch(uint _id) public view returns (
+        uint,
+        string memory,
+        string memory,
+        uint,
+        string memory,
+        address,
+        address[] memory
+    ) {
+        require(batches[_id].exists, "Batch not found");
+
+        Batch memory b = batches[_id];
+
+        return (
+            b.id,
+            b.name,
+            b.alcoholType,
+            b.abv,
+            b.origin,
+            b.currentOwner,
+            b.ownershipHistory
+        );
+    }
+
+    /**
+     * @dev Verifies if a batch exists on the blockchain
+     * @param _id The ID of the batch to verify
+     * @return True if the batch exists, false otherwise
+     */
+    function verifyBatch(uint _id) public view returns (bool) {
+        return batches[_id].exists;
+    }
+
+    /**
+     * @dev Gets the total number of batches created
+     * @return The current batch count
+     */
+    function getBatchCount() public view returns (uint) {
+        return batchCount;
+    }
+}
